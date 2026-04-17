@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+pymongo
+pydantic
+python-jose[cryptography] # JWT parsing
+passlib[bcrypt] # Password hashing
+python-multipart # File uploading for OpenCV streams
+opencv-python-headless
+deepface
+qrcode
+pyzbar
+Pillow

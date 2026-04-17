@@ -1,15 +1,20 @@
+"use client";
+
 import { createContext, useContext, useState, useCallback } from 'react'
 
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    try {
-      const saved = localStorage.getItem('sa_user')
-      return saved ? JSON.parse(saved) : null
-    } catch {
-      return null
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('sa_user')
+        return saved ? JSON.parse(saved) : null
+      } catch {
+        return null
+      }
     }
+    return null
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)

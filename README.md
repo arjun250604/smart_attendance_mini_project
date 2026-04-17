@@ -26,9 +26,8 @@
 ### Frontend
 | Technology | Version | Purpose |
 |---|---|---|
-| [React](https://react.dev) | 18.3 | UI library |
-| [React Router DOM](https://reactrouter.com) | 6.x | Client-side routing |
-| [Vite](https://vitejs.dev) | 5.x | Build tool & dev server |
+| [Astro](https://astro.build) | 4.x | Static Site Generation & MPA Routing |
+| [React](https://react.dev) | 18.3 | Interactive dashboard components (Islands) |
 | Vanilla CSS | — | Styling (glassmorphism, animations) |
 
 ### Planned Backend
@@ -44,23 +43,31 @@
 
 ## 📂 Project Structure
 
-```
+```text
 mini_project_smartAttendance/
-├── frontend/                   # React + Vite frontend
+├── frontend/                   # Astro + React frontend
 │   ├── public/                 # Static assets
 │   ├── src/
+│   │   ├── components/         # React Islands & UI hooks
+│   │   │   ├── LoginPage.jsx
+│   │   │   ├── AdminDashboardPage.jsx
+│   │   │   ├── ProtectedRoute.jsx
+│   │   │   └── ProviderWrapper.jsx # Context bridge
 │   │   ├── context/
-│   │   │   └── AuthContext.jsx # Global auth state (login, logout, user)
-│   │   ├── pages/
-│   │   │   ├── LoginPage.jsx   # Animated login with role selector
-│   │   │   ├── LoginPage.css
-│   │   │   ├── DashboardPage.jsx # Role-aware dashboard
-│   │   │   └── DashboardPage.css
-│   │   ├── App.jsx             # Router + ProtectedRoute wrapper
-│   │   ├── main.jsx            # React entry point
-│   │   └── index.css           # Global design tokens & resets
-│   ├── index.html
-│   ├── vite.config.js
+│   │   │   ├── AuthContext.jsx # Global auth state
+│   │   │   └── ThemeContext.jsx # Global theme state
+│   │   ├── hooks/
+│   │   │   └── useRouter.js    # Routing polyfill
+│   │   ├── layouts/
+│   │   │   └── Layout.astro    # Global HTML shell wrapper
+│   │   ├── pages/              # Astro file-based routing
+│   │   │   ├── index.astro
+│   │   │   ├── login.astro
+│   │   │   ├── dashboard.astro
+│   │   │   ├── faculty.astro
+│   │   │   └── student.astro
+│   │   └── index.css           # Global design tokens
+│   ├── astro.config.mjs        # Astro configuration
 │   └── package.json
 └── README.md
 ```
@@ -90,7 +97,7 @@ npm install
 npm run dev
 ```
 
-The app will be running at **http://localhost:5173**
+The app will be running at **http://localhost:4321**
 
 ---
 
@@ -113,7 +120,9 @@ Use the **"Fill demo credentials"** button on the login page, or enter manually:
 | Route | Page | Access |
 |---|---|---|
 | `/login` | Login page | Public |
-| `/dashboard` | Role-specific dashboard | Protected (requires login) |
+| `/dashboard` | Admin dashboard | Protected (requires admin) |
+| `/faculty` | Faculty dashboard | Protected (requires teacher) |
+| `/student` | Student dashboard | Protected (requires student) |
 | `/*` | Redirects to `/login` | — |
 
 ---
@@ -126,7 +135,7 @@ Use the **"Fill demo credentials"** button on the login page, or enter manually:
 - [ ] **Attendance Reports** — Export to PDF / CSV
 - [ ] **Email Notifications** — Alert absentees automatically
 - [ ] **Mobile Responsive** — Improved layout for phones & tablets
-- [ ] **Dark / Light Mode Toggle**
+- [x] **Dark / Light Mode Toggle**
 
 ---
 
@@ -134,4 +143,4 @@ Use the **"Fill demo credentials"** button on the login page, or enter manually:
 
 **Avinash K.**  
 Mini Project — Smart Attendance System  
-Built with React + Vite on the frontend, with Face Recognition & QR planned for the backend.
+Built with Astro + React on the frontend, with Face Recognition & QR planned for the backend.

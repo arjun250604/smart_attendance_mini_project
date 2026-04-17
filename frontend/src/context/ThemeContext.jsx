@@ -1,3 +1,5 @@
+"use client";
+
 import { createContext, useContext, useState, useEffect } from 'react'
 
 const ThemeContext = createContext()
@@ -15,9 +17,12 @@ function resolveTheme(t) {
 
 export function ThemeProvider({ children }) {
   // preference can be 'dark' | 'light' | 'system'
-  const [preference, setPreference] = useState(
-    () => localStorage.getItem('sa-theme') || 'dark'
-  )
+  const [preference, setPreference] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('sa-theme') || 'dark'
+    }
+    return 'dark'
+  })
 
   useEffect(() => {
     const resolved = resolveTheme(preference)
