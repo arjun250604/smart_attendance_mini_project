@@ -526,7 +526,7 @@ function TabSettings({ user }) {
     name:  user?.name  || '',
     email: user?.email || '',
     phone: '+91 98765 00001',
-    org:   'SmartAttend Institute of Technology',
+    org:   'ATTENTIFY Institute of Technology',
   })
   const [system, setSystem] = useState({
     minAttend:    75,
@@ -727,6 +727,7 @@ export default function AdminDashboardPage() {
   const router           = useRouter()
   const [activeTab, setActiveTab]     = useState('overview')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   const handleLogout = () => { logout(); router.replace('/login') }
   const initials = user?.name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || 'AD'
@@ -736,10 +737,10 @@ export default function AdminDashboardPage() {
       {sidebarOpen && <div className="ad-overlay" onClick={() => setSidebarOpen(false)} />}
 
       {/* Sidebar */}
-      <aside className={`ad-sidebar ${sidebarOpen ? 'open' : ''}`}>
+      <aside className={`ad-sidebar ${sidebarOpen ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <div className="ad-sidebar-brand">
-          <div className="ad-sidebar-logo">SA</div>
-          <span className="ad-sidebar-name">SmartAttend</span>
+          <div className="ad-sidebar-logo">A</div>
+          <span className="ad-sidebar-name">ATTENTIFY</span>
         </div>
 
         <nav className="ad-sidebar-nav">
@@ -774,11 +775,14 @@ export default function AdminDashboardPage() {
       <div className="ad-main-wrap">
         <header className="ad-mobile-topbar">
           <button className="ad-hamburger" onClick={() => setSidebarOpen(o => !o)}>☰</button>
-          <span className="ad-mobile-title">SmartAttend</span>
+          <span className="ad-mobile-title">ATTENTIFY</span>
         </header>
 
         <header className="ad-topbar">
-          <h1 className="ad-topbar-title">{NAV_ITEMS.find(n => n.id === activeTab)?.label}</h1>
+          <div className="ad-topbar-left" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <button className="ad-hamburger-desktop" onClick={() => setSidebarCollapsed(c => !c)} title="Toggle Sidebar">☰</button>
+            <h1 className="ad-topbar-title">{NAV_ITEMS.find(n => n.id === activeTab)?.label}</h1>
+          </div>
           <div className="ad-topbar-right">
             <span className="ad-topbar-date">
               {new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}

@@ -6,30 +6,27 @@ import { useAuth } from '../context/AuthContext'
 import './LoginPage.css'
 
 const ROLES = [
-  { value: 'admin',   label: 'Administrator', icon: '🛡️' },
+  { value: 'admin', label: 'Administrator', icon: '🛡️' },
   { value: 'teacher', label: 'Teacher / Faculty', icon: '👨‍🏫' },
   { value: 'student', label: 'Student', icon: '🎓' },
 ]
 
-const DEMO_CREDENTIALS = {
-  admin:   { email: 'admin@smartattend.com',   password: 'admin123' },
-  teacher: { email: 'teacher@smartattend.com', password: 'teacher123' },
-  student: { email: 'student@smartattend.com', password: 'student123' },
-}
-
 export default function LoginPage() {
   const router = useRouter()
-  const { login, loading, error, clearError, user } = useAuth()
+  const { login, register, loading, error, clearError, user } = useAuth()
 
-  const [form, setForm] = useState({ email: '', password: '', role: 'student' })
+  const [isRegister, setIsRegister] = useState(false)
+  const [form, setForm] = useState({ email: '', password: '', role: 'student', name: '' })
   const [showPassword, setShowPassword] = useState(false)
   const [fieldErrors, setFieldErrors] = useState({})
   const [mounted, setMounted] = useState(false)
   const [loginSuccess, setLoginSuccess] = useState(false)
 
   useEffect(() => {
-    // If already logged in, redirect
-    if (user) router.replace('/dashboard')
+    if (user) {
+      const dest = user.role === 'teacher' ? '/faculty' : user.role === 'student' ? '/student' : '/dashboard'
+      router.replace(dest)
+    }
     setMounted(true)
   }, [user, router])
 
@@ -39,6 +36,7 @@ export default function LoginPage() {
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = 'Enter a valid email'
     if (!form.password) errs.password = 'Password is required'
     else if (form.password.length < 6) errs.password = 'Password must be at least 6 characters'
+    if (isRegister && !form.name.trim()) errs.name = 'Full name is required'
     return errs
   }
 
@@ -60,25 +58,23 @@ export default function LoginPage() {
     if (Object.keys(errs).length) { setFieldErrors(errs); return }
 
     try {
-      const userData = await login(form.email, form.password, form.role)
-      setLoginSuccess(true)
-      const dest = userData?.role === 'teacher' ? '/faculty' : userData?.role === 'student' ? '/student' : '/dashboard'
-      setTimeout(() => router.push(dest), 800)
+      if (isRegister) {
+        await register(form.email, form.password, form.role, form.name)
+        alert("Account created! You can now sign in.")
+        setIsRegister(false)
+      } else {
+        const userData = await login(form.email, form.password, form.role)
+        setLoginSuccess(true)
+        const dest = userData?.role === 'teacher' ? '/faculty' : userData?.role === 'student' ? '/student' : '/dashboard'
+        setTimeout(() => router.push(dest), 800)
+      }
     } catch {
       // error is handled by context
     }
   }
 
-  const fillDemo = () => {
-    const creds = DEMO_CREDENTIALS[form.role]
-    setForm(prev => ({ ...prev, ...creds }))
-    clearError()
-    setFieldErrors({})
-  }
-
   return (
     <div className={`login-root ${mounted ? 'mounted' : ''}`}>
-      {/* Animated background */}
       <div className="login-bg">
         <div className="bg-orb bg-orb-1" />
         <div className="bg-orb bg-orb-2" />
@@ -86,15 +82,14 @@ export default function LoginPage() {
         <div className="bg-grid" />
       </div>
 
-      {/* Left panel — branding */}
       <aside className="login-aside">
         <div className="aside-content">
           <div className="brand-logo">
             <div className="logo-ring">
-              <span className="logo-icon">📸</span>
+              <span className="logo-icon">A</span>
             </div>
           </div>
-          <h1 className="aside-title">SmartAttend</h1>
+          <h1 className="aside-title">ATTENTIFY</h1>
           <p className="aside-subtitle">
             Next-generation attendance management powered by QR codes &amp; face recognition.
           </p>
@@ -132,17 +127,14 @@ export default function LoginPage() {
         </div>
       </aside>
 
-      {/* Right panel — form */}
       <main className="login-main">
         <div className={`login-card ${loginSuccess ? 'success' : ''}`}>
-          {/* Card header */}
           <div className="card-header">
             <div className="card-logo">SA</div>
-            <h2 className="card-title">Welcome back</h2>
-            <p className="card-description">Sign in to your SmartAttend account</p>
+            <h2 className="card-title">{isRegister ? 'Create Account' : 'Welcome back'}</h2>
+            <p className="card-description">{isRegister ? 'Join the Attentify community' : 'Sign in to your Attentify account'}</p>
           </div>
 
-          {/* Role selector */}
           <div className="role-selector" role="group" aria-label="Select your role">
             {ROLES.map(r => (
               <button
@@ -159,9 +151,7 @@ export default function LoginPage() {
             ))}
           </div>
 
-          {/* Form */}
           <form id="login-form" className="login-form" onSubmit={handleSubmit} noValidate>
-            {/* Global error */}
             {error && (
               <div className="alert alert-error" role="alert">
                 <span className="alert-icon">⚠️</span>
@@ -169,7 +159,25 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* Email */}
+            {isRegister && (
+              <div className={`field ${fieldErrors.name ? 'field-error' : ''}`}>
+                <label className="field-label" htmlFor="name">Full Name</label>
+                <div className="field-input-wrap">
+                  <span className="field-prefix-icon">👤</span>
+                  <input
+                    id="name"
+                    name="name"
+                    type="text"
+                    className="field-input"
+                    placeholder="John Doe"
+                    value={form.name}
+                    onChange={handleChange}
+                  />
+                </div>
+                {fieldErrors.name && <span className="field-error-msg">{fieldErrors.name}</span>}
+              </div>
+            )}
+
             <div className={`field ${fieldErrors.email ? 'field-error' : ''}`}>
               <label className="field-label" htmlFor="email">Email Address</label>
               <div className="field-input-wrap">
@@ -182,19 +190,11 @@ export default function LoginPage() {
                   placeholder="you@example.com"
                   value={form.email}
                   onChange={handleChange}
-                  autoComplete="email"
-                  aria-describedby={fieldErrors.email ? 'email-error' : undefined}
-                  aria-invalid={!!fieldErrors.email}
                 />
               </div>
-              {fieldErrors.email && (
-                <span id="email-error" className="field-error-msg" role="alert">
-                  {fieldErrors.email}
-                </span>
-              )}
+              {fieldErrors.email && <span className="field-error-msg">{fieldErrors.email}</span>}
             </div>
 
-            {/* Password */}
             <div className={`field ${fieldErrors.password ? 'field-error' : ''}`}>
               <label className="field-label" htmlFor="password">Password</label>
               <div className="field-input-wrap">
@@ -207,80 +207,38 @@ export default function LoginPage() {
                   placeholder="Enter your password"
                   value={form.password}
                   onChange={handleChange}
-                  autoComplete="current-password"
-                  aria-describedby={fieldErrors.password ? 'password-error' : undefined}
-                  aria-invalid={!!fieldErrors.password}
                 />
                 <button
                   type="button"
-                  id="toggle-password"
                   className="show-password-btn"
                   onClick={() => setShowPassword(p => !p)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? '🙈' : '👁️'}
                 </button>
               </div>
-              {fieldErrors.password && (
-                <span id="password-error" className="field-error-msg" role="alert">
-                  {fieldErrors.password}
-                </span>
-              )}
+              {fieldErrors.password && <span className="field-error-msg">{fieldErrors.password}</span>}
             </div>
 
-            {/* Forgot password */}
-            <div className="form-actions-row">
-              <a href="#" id="forgot-password-link" className="forgot-link" onClick={e => e.preventDefault()}>
-                Forgot password?
-              </a>
-            </div>
-
-            {/* Submit */}
             <button
               type="submit"
-              id="login-submit-btn"
               className={`login-btn ${loading ? 'loading' : ''} ${loginSuccess ? 'success' : ''}`}
               disabled={loading || loginSuccess}
             >
               {loginSuccess ? (
-                <>
-                  <span className="btn-icon">✅</span>
-                  <span>Redirecting…</span>
-                </>
+                <>Redirecting…</>
               ) : loading ? (
-                <>
-                  <span className="btn-spinner" aria-hidden="true" />
-                  <span>Signing in…</span>
-                </>
+                <>Processing…</>
               ) : (
-                <>
-                  <span>Sign In</span>
-                  <span className="btn-arrow">→</span>
-                </>
+                <>{isRegister ? 'Sign Up' : 'Sign In'}</>
               )}
             </button>
           </form>
 
-          {/* Demo credentials hint */}
-          <div className="demo-section">
-            <p className="demo-label">
-              🎮 Try a demo account
-            </p>
-            <button
-              type="button"
-              id="fill-demo-btn"
-              className="demo-btn"
-              onClick={fillDemo}
-            >
-              Fill demo credentials for <strong>{form.role}</strong>
-            </button>
-          </div>
-
-          {/* Footer */}
           <p className="card-footer">
-            Need an account?{' '}
-            <a href="#" id="contact-admin-link" className="card-footer-link" onClick={e => e.preventDefault()}>
-              Contact your administrator
+            {isRegister ? 'Already have an account?' : 'Need an account?'}
+            {' '}
+            <a href="#" className="card-footer-link" onClick={e => { e.preventDefault(); setIsRegister(!isRegister); clearError(); }}>
+              {isRegister ? 'Sign In' : 'Create One'}
             </a>
           </p>
         </div>

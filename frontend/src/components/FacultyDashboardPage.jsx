@@ -279,7 +279,7 @@ function TabQR() {
 
   const startSession = async () => {
     try {
-      const res = await fetch("http://localhost:8000/attendance/qr/generate", {
+      const res = await fetch(`http://${window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname}:8000/attendance/qr/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ course_id: course, duration_minutes: duration })
@@ -288,8 +288,10 @@ function TabQR() {
       const data = await res.json()
       
       // Use part of the JWT signature as a mock session ID for UI aesthetics
-      setSessionId("SA-" + data.token.slice(-8).toUpperCase()) 
+      setSessionId("A-" + data.token.slice(-8).toUpperCase()) 
       setTokenPayload(data.token)
+      
+      localStorage.setItem('active_qr_session', JSON.stringify({ course_id: course, timestamp: Date.now() }))
       
       setActive(true)
       setTimeLeft(duration * 60)
@@ -306,6 +308,7 @@ function TabQR() {
             clearInterval(timerRef.current)
             clearInterval(scanInterval)
             setActive(false)
+            localStorage.removeItem('active_qr_session')
             return 0
           }
           return prev - 1
@@ -321,6 +324,7 @@ function TabQR() {
     clearInterval(timerRef.current)
     setActive(false)
     setTimeLeft(0)
+    localStorage.removeItem('active_qr_session')
   }, [])
 
   useEffect(() => () => clearInterval(timerRef.current), [])
@@ -447,8 +451,34 @@ function TabQR() {
               </div>
 
               <div className="fd-qr-hint">
-                <span>📱 Students scan this QR using the SmartAttend mobile app</span>
+                <span>📱 Students scan this QR using the ATTENTIFY mobile app</span>
               </div>
+              
+              <button 
+                className="fd-outline-btn fd-btn-full" 
+                style={{ marginTop: '0.5rem', background: 'rgba(52, 211, 153, 0.1)', borderColor: 'rgba(52, 211, 153, 0.4)', color: 'var(--sd-green-lt)' }}
+                onClick={async (e) => {
+                  const btn = e.target;
+                  const originalText = btn.innerHTML;
+                  btn.innerHTML = '<span class="sd-spinner"></span> Sending...';
+                  try {
+                    const res = await fetch(`http://${window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname}:8000/attendance/qr/send`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ course_id: course, token: tokenPayload })
+                    });
+                    if (!res.ok) throw new Error("Failed to send");
+                    const data = await res.json();
+                    alert("✅ " + data.message);
+                  } catch(err) {
+                    alert("❌ Failed to send: " + err.message);
+                  } finally {
+                    btn.innerHTML = originalText;
+                  }
+                }}
+              >
+                📧 Send QR to Students
+              </button>
             </>
           )}
 
@@ -470,10 +500,10 @@ function TabQR() {
             </thead>
             <tbody>
               {[
-                { id: 'SA-CS101-ABCD1', course: 'CS101', date: 'Today, 9:05 AM',      dur: '10 min', scanned: '38/42', status: 'ended'  },
-                { id: 'SA-CS205-XYZ23', course: 'CS205', date: 'Today, 11:00 AM',     dur: '15 min', scanned: '35/38', status: 'ended'  },
-                { id: 'SA-CS312-MNOP4', course: 'CS312', date: 'Yesterday, 2:00 PM',  dur: '10 min', scanned: '30/35', status: 'ended'  },
-                { id: 'SA-CS101-QRST5', course: 'CS101', date: '2 days ago, 9:00 AM', dur: '20 min', scanned: '40/42', status: 'ended'  },
+                { id: 'A-CS101-ABCD1', course: 'CS101', date: 'Today, 9:05 AM',      dur: '10 min', scanned: '38/42', status: 'ended'  },
+                { id: 'A-CS205-XYZ23', course: 'CS205', date: 'Today, 11:00 AM',     dur: '15 min', scanned: '35/38', status: 'ended'  },
+                { id: 'A-CS312-MNOP4', course: 'CS312', date: 'Yesterday, 2:00 PM',  dur: '10 min', scanned: '30/35', status: 'ended'  },
+                { id: 'A-CS101-QRST5', course: 'CS101', date: '2 days ago, 9:00 AM', dur: '20 min', scanned: '40/42', status: 'ended'  },
               ].map(r => (
                 <tr key={r.id}>
                   <td><code className="fd-roll">{r.id}</code></td>
@@ -658,6 +688,7 @@ export default function FacultyDashboardPage() {
   const router           = useRouter()
   const [activeTab, setActiveTab] = useState('dashboard')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   const handleLogout = () => {
     logout()
@@ -672,10 +703,10 @@ export default function FacultyDashboardPage() {
       {sidebarOpen && <div className="fd-overlay" onClick={() => setSidebarOpen(false)} />}
 
       {/* Sidebar */}
-      <aside className={`fd-sidebar ${sidebarOpen ? 'open' : ''}`}>
+      <aside className={`fd-sidebar ${sidebarOpen ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <div className="fd-sidebar-brand">
-          <div className="fd-sidebar-logo">SA</div>
-          <span className="fd-sidebar-name">SmartAttend</span>
+          <div className="fd-sidebar-logo">A</div>
+          <span className="fd-sidebar-name">ATTENTIFY</span>
         </div>
 
         <nav className="fd-sidebar-nav">
@@ -718,7 +749,8 @@ export default function FacultyDashboardPage() {
 
         {/* Page header */}
         <header className="fd-topbar">
-          <div className="fd-topbar-left">
+          <div className="fd-topbar-left" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <button className="fd-hamburger-desktop" onClick={() => setSidebarCollapsed(c => !c)} title="Toggle Sidebar">☰</button>
             <h1 className="fd-topbar-title">{NAV_ITEMS.find(n => n.id === activeTab)?.label}</h1>
           </div>
           <div className="fd-topbar-right">

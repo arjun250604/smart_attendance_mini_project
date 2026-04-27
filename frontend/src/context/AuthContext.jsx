@@ -23,29 +23,60 @@ export function AuthProvider({ children }) {
     setLoading(true)
     setError(null)
 
-    // Simulate API call – replace with real backend call
-    await new Promise(resolve => setTimeout(resolve, 1200))
+    try {
+      const res = await fetch(`http://${window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname}:8000/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, role })
+      })
 
-    // Mock validation
-    const mockUsers = {
-      'admin@smartattend.com':   { password: 'admin123',   role: 'admin',   name: 'Admin User' },
-      'teacher@smartattend.com': { password: 'teacher123', role: 'teacher', name: 'Prof. Sharma' },
-      'student@smartattend.com': { password: 'student123', role: 'student', name: 'Avinash K.' },
-    }
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.detail || "Login failed")
+      }
 
-    const found = mockUsers[email.toLowerCase()]
-    if (!found || found.password !== password || found.role !== role) {
+      // data contains { access_token, token_type, user }
+      const userData = { 
+        ...data.user, 
+        token: data.access_token 
+      }
+      
+      localStorage.setItem('sa_user', JSON.stringify(userData))
+      setUser(userData)
       setLoading(false)
-      const err = 'Invalid email, password or role. Please try again.'
-      setError(err)
-      throw new Error(err)
+      return userData
+    } catch (err) {
+      setLoading(false)
+      const msg = typeof err.message === 'string' ? err.message : "An unexpected error occurred"
+      setError(msg)
+      throw err
     }
+  }, [])
 
-    const userData = { email, name: found.name, role: found.role, token: `mock-jwt-${Date.now()}` }
-    localStorage.setItem('sa_user', JSON.stringify(userData))
-    setUser(userData)
-    setLoading(false)
-    return userData
+  const register = useCallback(async (email, password, role, name) => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const res = await fetch(`http://${window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname}:8000/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, role, name })
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.detail || "Registration failed")
+      }
+
+      setLoading(false)
+      return data
+    } catch (err) {
+      setLoading(false)
+      const msg = typeof err.message === 'string' ? err.message : "An unexpected error occurred"
+      setError(msg)
+      throw err
+    }
   }, [])
 
   const logout = useCallback(() => {
@@ -56,7 +87,7 @@ export function AuthProvider({ children }) {
   const clearError = useCallback(() => setError(null), [])
 
   return (
-    <AuthContext.Provider value={{ user, loading, error, login, logout, clearError }}>
+    <AuthContext.Provider value={{ user, loading, error, login, register, logout, clearError }}>
       {children}
     </AuthContext.Provider>
   )

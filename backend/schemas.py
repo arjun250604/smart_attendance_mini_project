@@ -1,16 +1,24 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, GetCoreSchemaHandler
+from pydantic_core import core_schema
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Any
 
-# Custom validator subclass for MongoDB ObjectId mapping cleanly to PyDantic
+# Custom validator for MongoDB ObjectId mapping cleanly to Pydantic v2
 class PyObjectId(str):
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
-
-    @classmethod
-    def validate(cls, v):
-        return str(v)
+    def __get_pydantic_core_schema__(
+        cls, _source_type: Any, _handler: GetCoreSchemaHandler
+    ) -> core_schema.CoreSchema:
+        return core_schema.json_or_python_schema(
+            json_schema=core_schema.str_schema(),
+            python_schema=core_schema.union_schema([
+                core_schema.is_instance_schema(str),
+                core_schema.no_info_plain_validator_function(lambda v: str(v)),
+            ]),
+            serialization=core_schema.plain_serializer_function_ser_schema(
+                lambda v: str(v), when_used='unless-none'
+            ),
+        )
 
 # ---- Users ----
 class UserBase(BaseModel):
@@ -18,6 +26,11 @@ class UserBase(BaseModel):
     name: str
 
 class UserCreate(UserBase):
+    password: str
+    role: str = "student"
+
+class UserLogin(BaseModel):
+    email: str
     password: str
     role: str = "student"
 
@@ -64,3 +77,7 @@ class QRGenerateResponse(BaseModel):
     token: str
     course_id: str
     duration_minutes: int
+
+class QRSendRequest(BaseModel):
+    course_id: str
+    token: str

@@ -38,7 +38,7 @@ const TODAY_SCHEDULE = [
 const NAV_ITEMS = [
   { id: 'overview',    icon: '🏠', label: 'Overview'    },
   { id: 'attendance',  icon: '📊', label: 'Attendance'  },
-  { id: 'qrscan',      icon: '📷', label: 'QR Scan'     },
+  { id: 'scanner',     icon: '📷', label: 'Scanner'     },
   { id: 'classes',     icon: '📚', label: 'Classes'     },
   { id: 'logs',        icon: '🗒️',  label: 'Logs'       },
   { id: 'settings',    icon: '⚙️',  label: 'Settings'   },
@@ -88,8 +88,8 @@ function TabOverview({ user, onNav }) {
           <h2 className="sd-welcome-title">Hey, <span>{user?.name?.split(' ')[0] || 'Student'}</span> 👋</h2>
           <p className="sd-welcome-date">{today}</p>
         </div>
-        <button className="sd-primary-btn" onClick={() => onNav('qrscan')}>
-          📷 Scan QR
+        <button className="sd-primary-btn" onClick={() => onNav('scanner')}>
+          📷 Scan
         </button>
       </div>
 
@@ -302,9 +302,32 @@ function TabAttendance() {
 }
 
 // ═══════════════════════════════════════════════════════════
-//  TAB: QR SCAN
+//  TAB: SCANNER (QR + Face)
 // ═══════════════════════════════════════════════════════════
-function TabQRScan({ user }) {
+function TabScanner({ user }) {
+  const [step, setStep] = useState(1)
+
+  return (
+    <div className="sd-tab-content">
+      <div className="sd-section-header">
+        <div>
+          <h2 className="sd-section-title">🔒 2-Step Attendance Verification</h2>
+          <p className="sd-section-sub">
+            {step === 1 ? 'Step 1: Verify your identity using facial recognition' : 'Step 2: Scan the session QR code to mark attendance'}
+          </p>
+        </div>
+        <div className="sd-step-indicator">
+          <span className={`sd-step-badge ${step >= 1 ? 'active' : ''}`}>1. Face</span>
+          <span className="sd-step-line" style={{ width: '30px', height: '2px', background: step === 2 ? 'var(--sd-accent)' : 'rgba(255,255,255,0.1)', display: 'inline-block', margin: '0 8px', verticalAlign: 'middle' }}></span>
+          <span className={`sd-step-badge ${step === 2 ? 'active' : ''}`}>2. QR Code</span>
+        </div>
+      </div>
+      {step === 1 ? <ScannerFaceContent user={user} onVerified={() => setStep(2)} /> : <ScannerQRContent user={user} />}
+    </div>
+  )
+}
+
+function ScannerQRContent({ user }) {
   const [scanning, setScanning]   = useState(false)
   const [sessionCode, setCode]    = useState('')
   const [result, setResult]       = useState(null) // 'success' | 'error' | null
@@ -323,7 +346,7 @@ function TabQRScan({ user }) {
       formData.append("token", code);
       formData.append("student_id", user?.email || "mock_student@smartattend.com");
       
-      const res = await fetch("http://localhost:8000/attendance/qr", {
+      const res = await fetch(`http://${window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname}:8000/attendance/qr`, {
         method: "POST",
         body: formData
       });
@@ -370,18 +393,14 @@ function TabQRScan({ user }) {
   useEffect(() => () => clearTimeout(timerRef.current), [])
 
   return (
-    <div className="sd-tab-content">
-      <div className="sd-section-header">
-        <div>
-          <h2 className="sd-section-title">📷 QR Code Scanner</h2>
-          <p className="sd-section-sub">Scan your faculty's QR code to mark attendance</p>
-        </div>
-      </div>
-
+    <>
       <div className="sd-qr-layout">
         {/* Scanner area */}
         <div className="sd-card sd-scanner-card">
           <h3 className="sd-card-title">📸 Camera Scanner</h3>
+          <div style={{ background: 'rgba(52, 211, 153, 0.15)', color: 'var(--sd-green-lt)', padding: '0.5rem 1rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', border: '1px solid rgba(52, 211, 153, 0.3)' }}>
+            <span>✅</span> Identity Verified successfully! Please scan the QR code to finish.
+          </div>
 
           <div className={`sd-viewfinder ${scanning ? 'scanning' : ''} ${result === 'success' ? 'vf-success' : result === 'error' ? 'vf-error' : ''}`}>
             {scanning ? (
@@ -480,7 +499,245 @@ function TabQRScan({ user }) {
           </div>
         </div>
       </div>
-    </div>
+    </>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SCANNER: FACE CONTENT
+// ═══════════════════════════════════════════════════════════
+function ScannerFaceContent({ user, onVerified }) {
+  const [scanning, setScanning]   = useState(false)
+  const [result, setResult]       = useState(null)
+  const [resultMsg, setMsg]       = useState('')
+  const [history, setHistory]     = useState([
+    { id: 1, method: 'Face Recognition', time: 'Today, 11:02 AM', status: 'success' },
+    { id: 2, method: 'Face Recognition', time: '13 Apr, 2:00 PM', status: 'success' },
+  ])
+  const timerRef = useRef(null)
+  const videoRef = useRef(null)
+  const canvasRef = useRef(null)
+  const [stream, setStream] = useState(null)
+
+  const startCamera = async () => {
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({ video: true })
+      setStream(s)
+      if (videoRef.current) {
+        videoRef.current.srcObject = s
+      }
+    } catch (err) {
+      setResult('error')
+      setMsg("Camera access denied: " + err.message)
+    }
+  }
+
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(t => t.stop())
+      setStream(null)
+    }
+  }
+
+  useEffect(() => {
+    startCamera()
+    return () => stopCamera()
+  }, []) // Stop camera when user navigates away from tab
+
+  useEffect(() => {
+    if (stream && videoRef.current) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [stream]);
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    setScanning(true)
+    setResult(null)
+    setMsg('')
+
+    try {
+      const formData = new FormData()
+      formData.append("file", file, "face.jpg")
+      formData.append("student_id", user?.email || "mock_student@smartattend.com")
+      
+      const res = await fetch(`http://${window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname}:8000/attendance/face/verify-only`, {
+        method: "POST",
+        body: formData
+      })
+      
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.detail || "Face not recognized")
+      }
+      
+      const data = await res.json()
+      setResult('success')
+      setMsg(data.detail || 'Identity verified successfully! Moving to QR Step...')
+      
+      setTimeout(() => {
+        if (onVerified) onVerified()
+      }, 2000)
+    } catch(err) {
+      setResult('error')
+      setMsg(err.message)
+    } finally {
+      setScanning(false)
+    }
+  }
+
+  const startScan = () => {
+    if (!videoRef.current || !canvasRef.current) return
+    setScanning(true)
+    setResult(null)
+    setMsg('')
+    
+    // Simulate UI delay for scanning effect
+    timerRef.current = setTimeout(() => {
+      const canvas = canvasRef.current
+      const video = videoRef.current
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      const ctx = canvas.getContext('2d')
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+      
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          setScanning(false);
+          setResult('error');
+          setMsg('Could not capture frame. Please make sure the camera is working.');
+          return;
+        }
+        try {
+          const formData = new FormData();
+          formData.append("file", blob, "face.jpg");
+          formData.append("student_id", user?.email || "mock_student@smartattend.com");
+          
+          const res = await fetch(`http://${window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname}:8000/attendance/face/verify-only`, {
+            method: "POST",
+            body: formData
+          });
+          
+          if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || "Face not recognized");
+          }
+          
+          const data = await res.json();
+          
+          setResult('success');
+          setMsg(data.detail || 'Identity verified successfully! Moving to QR Step...');
+          
+          setTimeout(() => {
+            if (onVerified) onVerified();
+          }, 2000);
+        } catch(err) {
+          setResult('error');
+          setMsg(err.message);
+        } finally {
+          setScanning(false);
+        }
+      }, 'image/jpeg', 0.95)
+    }, 1500)
+  }
+
+  useEffect(() => () => clearTimeout(timerRef.current), [])
+
+  return (
+    <>
+      <div className="sd-qr-layout">
+        <div className="sd-card sd-scanner-card">
+          <h3 className="sd-card-title">🎥 Webcam Verification</h3>
+
+          <div className={`sd-viewfinder ${scanning ? 'scanning' : ''} ${result === 'success' ? 'vf-success' : result === 'error' ? 'vf-error' : ''}`} style={{ borderRadius: '50%', overflow: 'hidden', position: 'relative', background: '#000' }}>
+            {stream ? (
+              <video 
+                ref={videoRef} 
+                autoPlay 
+                playsInline 
+                muted 
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+              />
+            ) : (
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
+                <span className="sd-vf-hint" style={{ textAlign: 'center' }}>No Camera Access</span>
+                <label className="sd-outline-btn" style={{ fontSize: '0.8rem', padding: '0.3rem 0.8rem', cursor: 'pointer' }}>
+                  Upload Photo
+                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileUpload} disabled={scanning} />
+                </label>
+              </div>
+            )}
+            
+            <canvas ref={canvasRef} style={{ display: 'none' }} />
+
+            {scanning && (
+              <>
+                <div className="sd-scan-lines" style={{ borderRadius: '50%' }} />
+                <div className="sd-scan-laser" />
+                <p className="sd-scanning-label" style={{ top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', padding: '4px 10px', borderRadius: '4px', zIndex: 10 }}>Analyzing Face…</p>
+              </>
+            )}
+          </div>
+
+          {result && (
+            <div className={`sd-result-banner ${result}`}>
+              <span>{result === 'success' ? '✅' : '❌'}</span>
+              <span>{resultMsg}</span>
+            </div>
+          )}
+
+          <div className="sd-scanner-actions">
+            <button
+              className={`sd-primary-btn sd-btn-full ${scanning ? 'loading' : ''}`}
+              onClick={startScan}
+              disabled={scanning || !stream || result === 'success'}
+            >
+              {scanning ? (
+                <><span className="sd-spinner" /> Verifying…</>
+              ) : (
+                <><span>👁️</span> {result === 'error' ? 'Try Again' : 'Verify Identity'}</>
+              )}
+            </button>
+          </div>
+        </div>
+
+        <div className="sd-qr-right">
+          <div className="sd-card">
+            <h3 className="sd-card-title">ℹ️ How it works</h3>
+            <ol className="sd-how-list">
+              <li><span>1</span> Click <strong>Start Scan</strong> to open the webcam</li>
+              <li><span>2</span> Position your face inside the circle</li>
+              <li><span>3</span> Look directly at the camera</li>
+              <li><span>4</span> Wait for AI facial recognition to verify you ✅</li>
+            </ol>
+            <div className="sd-info-note">💡 Ensure you are in a well-lit area without wearing sunglasses or masks.</div>
+          </div>
+
+          <div className="sd-card">
+            <h3 className="sd-card-title">📋 Recent Scans</h3>
+            {history.length === 0 ? (
+              <p style={{ color: 'var(--sd-muted)', fontSize: '0.83rem' }}>No scans yet.</p>
+            ) : (
+              <div className="sd-scan-history">
+                {history.map(h => (
+                  <div key={h.id} className="sd-scan-hist-item">
+                    <span className={`sd-badge sd-badge-${h.status === 'success' ? 'present' : 'absent'}`}>
+                      {h.status === 'success' ? '✅' : '❌'}
+                    </span>
+                    <div className="sd-scan-hist-body">
+                      <span className="sd-course-code-sm">{h.method}</span>
+                      <span className="sd-scan-hist-time">{h.time}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
   )
 }
 
@@ -740,6 +997,87 @@ function TabSettings({ user }) {
               </div>
             ))}
           </div>
+
+          <div className="sd-card" style={{ marginTop: '1.25rem' }}>
+            <h3 className="sd-card-title">📸 Register Face Profile</h3>
+            <p className="sd-section-sub" style={{ marginBottom: '1rem' }}>Take a clear snapshot of your face to register it with the facial recognition system.</p>
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+               <div style={{ width: '200px', height: '200px', background: '#000', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, position: 'relative' }}>
+                 <video id="register-video" autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }}></video>
+               </div>
+               <div style={{ flex: 1, minWidth: '200px' }}>
+                 <button 
+                  className="sd-outline-btn sd-btn-full" 
+                  onClick={() => {
+                    navigator.mediaDevices.getUserMedia({ video: true })
+                      .then(s => {
+                        const v = document.getElementById('register-video')
+                        v.srcObject = s
+                        v.play()
+                        v.setAttribute('data-active', 'true')
+                        window._registerStream = s;
+                      })
+                      .catch(e => alert('Camera error: ' + e.message))
+                  }}>
+                   1. Turn On Camera
+                 </button>
+                 <button 
+                  className="sd-primary-btn sd-btn-full" 
+                  style={{ marginTop: '0.5rem' }}
+                  onClick={() => {
+                    const v = document.getElementById('register-video')
+                    if (!v || v.getAttribute('data-active') !== 'true') return;
+                    const c = document.createElement('canvas')
+                    c.width = v.videoWidth; c.height = v.videoHeight;
+                    c.getContext('2d').drawImage(v, 0, 0, c.width, c.height)
+                    const btn = document.activeElement;
+                    if(btn) btn.innerHTML = '<span class="sd-spinner"></span> Uploading...';
+                    c.toBlob(async blob => {
+                      const fd = new FormData();
+                      fd.append('file', blob, 'face.jpg')
+                      fd.append('student_id', profile.email || 'mock_student@smartattend.com')
+                      try {
+                        const res = await fetch(`http://${window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname}:8000/attendance/face/register`, { method: "POST", body: fd })
+                        const d = await res.json()
+                        if(!res.ok) throw new Error(d.detail)
+                        alert("✅ Face Registered Successfully!")
+                      } catch(e) { 
+                        alert("❌ Registration failed: " + e.message) 
+                      } finally {
+                        if(btn) btn.innerHTML = '2. Register Face Profiles';
+                        if (window._registerStream) {
+                          window._registerStream.getTracks().forEach(t => t.stop());
+                          v.removeAttribute('data-active');
+                        }
+                      }
+                    }, 'image/jpeg')
+                  }}>
+                   2. Register Face Profile
+                 </button>
+                 <div style={{ marginTop: '0.5rem', textAlign: 'center' }}>
+                   <span style={{ fontSize: '0.8rem', opacity: 0.6, marginRight: '0.5rem' }}>Camera not working?</span>
+                   <label className="sd-outline-btn" style={{ fontSize: '0.8rem', padding: '0.2rem 0.6rem', cursor: 'pointer' }}>
+                     Upload Image
+                     <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async (e) => {
+                       const file = e.target.files[0];
+                       if (!file) return;
+                       const fd = new FormData();
+                       fd.append('file', file, 'face.jpg');
+                       fd.append('student_id', profile.email || 'mock_student@smartattend.com');
+                       try {
+                         const res = await fetch(`http://${window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname}:8000/attendance/face/register`, { method: "POST", body: fd })
+                         const d = await res.json()
+                         if(!res.ok) throw new Error(d.detail)
+                         alert("✅ Face Registered Successfully from Upload!")
+                       } catch(err) {
+                         alert("❌ Registration failed: " + err.message)
+                       }
+                     }} />
+                   </label>
+                 </div>
+               </div>
+             </div>
+          </div>
         </div>
 
         <div>
@@ -823,8 +1161,21 @@ function TabSettings({ user }) {
 export default function StudentDashboardPage() {
   const { user, logout } = useAuth()
   const router           = useRouter()
-  const [activeTab, setActiveTab]   = useState('overview')
+  const [activeTab, setActiveTab]     = useState('overview')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
+  const handleNav = (id) => {
+    if (id === 'scanner') {
+      const activeSession = localStorage.getItem('active_qr_session')
+      if (activeSession) {
+        alert("🚨 Access Denied\n\nYou must be in the Scanner dashboard BEFORE the QR session generates. You cannot enter now because a session is already active.")
+        return
+      }
+    }
+    setActiveTab(id)
+    setSidebarOpen(false)
+  }
 
   const handleLogout = () => { logout(); router.replace('/login') }
   const initials = user?.name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || 'ST'
@@ -834,10 +1185,10 @@ export default function StudentDashboardPage() {
       {sidebarOpen && <div className="sd-overlay" onClick={() => setSidebarOpen(false)} />}
 
       {/* Sidebar */}
-      <aside className={`sd-sidebar ${sidebarOpen ? 'open' : ''}`}>
+      <aside className={`sd-sidebar ${sidebarOpen ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <div className="sd-sidebar-brand">
-          <div className="sd-sidebar-logo">SA</div>
-          <span className="sd-sidebar-name">SmartAttend</span>
+          <div className="sd-sidebar-logo">A</div>
+          <span className="sd-sidebar-name">ATTENTIFY</span>
         </div>
 
         <nav className="sd-sidebar-nav">
@@ -846,7 +1197,7 @@ export default function StudentDashboardPage() {
               key={item.id}
               id={`nav-${item.id}`}
               className={`sd-nav-item ${activeTab === item.id ? 'active' : ''}`}
-              onClick={() => { setActiveTab(item.id); setSidebarOpen(false) }}
+              onClick={() => handleNav(item.id)}
               aria-current={activeTab === item.id ? 'page' : undefined}
             >
               <span className="sd-nav-icon">{item.icon}</span>
@@ -872,11 +1223,14 @@ export default function StudentDashboardPage() {
       <div className="sd-main-wrap">
         <header className="sd-mobile-topbar">
           <button className="sd-hamburger" onClick={() => setSidebarOpen(o => !o)}>☰</button>
-          <span className="sd-mobile-title">SmartAttend</span>
+          <span className="sd-mobile-title">ATTENTIFY</span>
         </header>
 
         <header className="sd-topbar">
-          <h1 className="sd-topbar-title">{NAV_ITEMS.find(n => n.id === activeTab)?.label}</h1>
+          <div className="sd-topbar-left" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <button className="sd-hamburger-desktop" onClick={() => setSidebarCollapsed(c => !c)} title="Toggle Sidebar">☰</button>
+            <h1 className="sd-topbar-title">{NAV_ITEMS.find(n => n.id === activeTab)?.label}</h1>
+          </div>
           <div className="sd-topbar-right">
             <span className="sd-topbar-date">
               {new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
@@ -890,9 +1244,9 @@ export default function StudentDashboardPage() {
         </header>
 
         <main className="sd-content">
-          {activeTab === 'overview'   && <TabOverview   user={user} onNav={setActiveTab} />}
+          {activeTab === 'overview'   && <TabOverview   user={user} onNav={handleNav} />}
           {activeTab === 'attendance' && <TabAttendance />}
-          {activeTab === 'qrscan'     && <TabQRScan user={user} />}
+          {activeTab === 'scanner'    && <TabScanner user={user} />}
           {activeTab === 'classes'    && <TabClasses />}
           {activeTab === 'logs'       && <TabLogs />}
           {activeTab === 'settings'   && <TabSettings user={user} />}

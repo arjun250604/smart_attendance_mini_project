@@ -8,26 +8,13 @@ from datetime import timedelta
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/login", response_model=schemas.Token)
-def login(request: schemas.UserCreate, db: Database = Depends(get_db)):
+def login(request: schemas.UserLogin, db: Database = Depends(get_db)):
     user = db["users"].find_one({"email": request.email})
     
-    # FOR DEMO PURPOSES: Auto-provision mocked database roles if email is correct
     if not user:
-        if request.email in ["admin@smartattend.com", "teacher@smartattend.com", "student@smartattend.com"]:
-            hashed_pw = get_password_hash(request.password)
-            new_user = {
-                "email": request.email,
-                "hashed_password": hashed_pw,
-                "name": request.email.split("@")[0].capitalize(),
-                "role": request.role
-            }
-            res = db["users"].insert_one(new_user)
-            user = db["users"].find_one({"_id": res.inserted_id})
-        else:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
             
-    # Normally we verify password securely:
-    if user and not verify_password(request.password, user["hashed_password"]):
+    if not verify_password(request.password, user["hashed_password"]):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password")
             
     if user.get("role") != request.role:

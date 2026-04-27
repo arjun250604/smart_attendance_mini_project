@@ -1,6 +1,7 @@
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
+from typing import Optional
 import os
 
 # Secret key to sign JWT token
@@ -8,7 +9,9 @@ SECRET_KEY = os.getenv("SECRET_KEY", "super-secret-attendance-key")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 24 hours
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Using pbkdf2_sha256 to avoid a known bcrypt 4.0+ bug on some systems.
+# Explicitly disabling deprecated="auto" to prevent it from loading the buggy bcrypt handler.
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"])
 
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
@@ -16,7 +19,7 @@ def verify_password(plain_password, hashed_password):
 def get_password_hash(password):
     return pwd_context.hash(password)
 
-def create_access_token(data: dict, expires_delta: timedelta | None = None):
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta

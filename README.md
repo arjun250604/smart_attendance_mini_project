@@ -1,146 +1,96 @@
 # 📸 SmartAttend — Smart Attendance System
 
-> Next-generation attendance management powered by **QR Code scanning** and **Face Recognition**.
+> A next-generation attendance management solution powered by **QR Code scanning** and **AI Face Recognition**.
 
 ---
 
-## ✨ Features
+## ✨ System Highlights
 
-| Feature | Status |
+| Feature | Technology |
 |---|---|
-| 🔐 Role-based login (Admin / Teacher / Student) | ✅ Done |
-| 🎨 Animated login page with glassmorphism UI | ✅ Done |
-| 🔲 QR Code attendance session (UI) | ✅ Done |
-| 👁️ Face Recognition attendance (UI) | ✅ Done |
-| 📊 Role-specific dashboard with stats | ✅ Done |
-| 🔔 Real-time alerts & activity feed (UI) | ✅ Done |
-| ⚡ Quick Actions panel | ✅ Done |
-| 🔒 Protected routes with Auth Context | ✅ Done |
-| 🗄️ Backend API integration | 🔜 Planned |
-| 📑 Report export (PDF / CSV) | 🔜 Planned |
+| 🔐 **Authentication** | PBKDF2 Hashing + JWT Sessions |
+| 👁️ **Face Recognition** | DeepFace (Facenet) + OpenCV |
+| 🗄️ **Database** | Native MongoDB (NoSQL) |
+| 🌐 **Frontend** | Astro + React (Node.js) |
+| ⚙️ **Backend** | FastAPI (Python 3.9) |
+| 🌓 **Theming** | Glassmorphism UI with Dark/Light Toggle |
 
 ---
 
-## 🛠️ Tech Stack
+## 🛠️ Hybrid Architecture
 
-### Frontend
-| Technology | Version | Purpose |
-|---|---|---|
-| [Astro](https://astro.build) | 4.x | Static Site Generation & MPA Routing |
-| [React](https://react.dev) | 18.3 | Interactive dashboard components (Islands) |
-| Vanilla CSS | — | Styling (glassmorphism, animations) |
+This project uses a **Dual-Engine** architecture to combine the best of two worlds:
 
-### Planned Backend
-| Technology | Purpose |
-|---|---|
-| Python / Flask or FastAPI | REST API server |
-| OpenCV + DeepFace | Face recognition engine |
-| QR Code libraries | QR session generation & scanning |
-| PostgreSQL / MongoDB | User & attendance data storage |
-| JWT | Authentication tokens |
+### 1. Frontend Engine (Node.js)
+*   **Role:** Powers the user interface and high-speed animations.
+*   **Stack:** Astro, React, and Vanilla CSS.
+*   **Responsibility:** Handling the camera stream, rendering the dashboard, and managing the "Theme" and "Auth" states using React Context.
+
+### 2. AI & Data Engine (Python)
+*   **Role:** Handles heavy data processing and artificial intelligence.
+*   **Stack:** FastAPI, MongoDB, DeepFace.
+*   **Responsibility:** Securely hashing passwords, generating encrypted QR tokens, and performing 1:1 facial verification using embeddings.
 
 ---
 
-## 📂 Project Structure
+## 🔐 Security & AI Pipeline
 
-```text
-mini_project_smartAttendance/
-├── frontend/                   # Astro + React frontend
-│   ├── public/                 # Static assets
-│   ├── src/
-│   │   ├── components/         # React Islands & UI hooks
-│   │   │   ├── LoginPage.jsx
-│   │   │   ├── AdminDashboardPage.jsx
-│   │   │   ├── ProtectedRoute.jsx
-│   │   │   └── ProviderWrapper.jsx # Context bridge
-│   │   ├── context/
-│   │   │   ├── AuthContext.jsx # Global auth state
-│   │   │   └── ThemeContext.jsx # Global theme state
-│   │   ├── hooks/
-│   │   │   └── useRouter.js    # Routing polyfill
-│   │   ├── layouts/
-│   │   │   └── Layout.astro    # Global HTML shell wrapper
-│   │   ├── pages/              # Astro file-based routing
-│   │   │   ├── index.astro
-│   │   │   ├── login.astro
-│   │   │   ├── dashboard.astro
-│   │   │   ├── faculty.astro
-│   │   │   └── student.astro
-│   │   └── index.css           # Global design tokens
-│   ├── astro.config.mjs        # Astro configuration
-│   └── package.json
-└── README.md
-```
+### Authentication Flow
+1.  **Secure Hashing:** Passwords are never stored as text. We use **PBKDF2-SHA256** to derive a cryptographically secure hash.
+2.  **Tokenization:** Upon login, the server issues a **JWT (JSON Web Token)** that authorizes all subsequent AI requests.
+3.  **RBAC:** The system enforces Role-Based Access Control (Admin, Teacher, Student).
+
+### Face Recognition Flow
+1.  **Capture:** The frontend captures a frame from the webcam.
+2.  **Base64 Processing:** The image is converted to a Base64 string and sent to the backend.
+3.  **DeepFace Verify:** The backend retrieves the student's registered face (stored as Base64 in MongoDB), reconstructs it, and uses **OpenCV** + **DeepFace (Facenet)** to compare the two faces.
+4.  **Verification:** Attendance is only logged if the AI reports a "Match" with high confidence.
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Installation & Setup
 
 ### Prerequisites
-- **Node.js** ≥ 18.x
-- **npm** ≥ 9.x
+- **Node.js** (v18+)
+- **Python** (v3.9+)
+- **MongoDB** (Running locally on port 27017)
 
-### 1. Clone the repository
+### 1. Backend (Python)
 ```bash
-git clone https://github.com/avinash007kp-del/mini_project_smartAttendance.git
-cd mini_project_smartAttendance
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+uvicorn main:app --reload
 ```
 
-### 2. Install frontend dependencies
+### 2. Frontend (Node.js)
 ```bash
 cd frontend
 npm install
-```
-
-### 3. Start the development server
-```bash
 npm run dev
 ```
 
-The app will be running at **http://localhost:4321**
-
 ---
 
-## 🎮 Demo Credentials
+## 🗄️ Database Management (MongoDB)
 
-Use the **"Fill demo credentials"** button on the login page, or enter manually:
+You can manage and view your data using **MongoDB Compass** or **mongosh**.
 
-| Role | Email | Password |
-|---|---|---|
-| 🛡️ Administrator | `admin@smartattend.com` | `admin123` |
-| 👨‍🏫 Teacher / Faculty | `teacher@smartattend.com` | `teacher123` |
-| 🎓 Student | `student@smartattend.com` | `student123` |
+### View Registered Users
+```javascript
+use attendance_db
+db.users.find().pretty()
+```
 
-> **Note:** Authentication is currently mocked on the frontend. A real backend with JWT will be integrated in a future milestone.
-
----
-
-## 🖥️ Pages & Routes
-
-| Route | Page | Access |
-|---|---|---|
-| `/login` | Login page | Public |
-| `/dashboard` | Admin dashboard | Protected (requires admin) |
-| `/faculty` | Faculty dashboard | Protected (requires teacher) |
-| `/student` | Student dashboard | Protected (requires student) |
-| `/*` | Redirects to `/login` | — |
-
----
-
-## 🗺️ Roadmap
-
-- [ ] **Backend API** — Flask/FastAPI server with JWT auth
-- [ ] **Face Recognition module** — Live webcam capture + DeepFace matching
-- [ ] **QR Code module** — Session-based QR generation & scanning
-- [ ] **Attendance Reports** — Export to PDF / CSV
-- [ ] **Email Notifications** — Alert absentees automatically
-- [ ] **Mobile Responsive** — Improved layout for phones & tablets
-- [x] **Dark / Light Mode Toggle**
+### View AI Face Profiles
+```javascript
+db.face_profiles.find().pretty()
+```
 
 ---
 
 ## 👨‍💻 Author
-
 **Avinash K.**  
 Mini Project — Smart Attendance System  
-Built with Astro + React on the frontend, with Face Recognition & QR planned for the backend.
+*Innovative attendance management using AI and Modern Web Technologies.*
